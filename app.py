@@ -240,8 +240,22 @@ import pandas as pd
 import streamlit as st
 import pydeck as pdk
 
-from data_prep import autoload_connection, load_trip_csv_to_duckdb
-from nlq import parse_intent, execute_intent
+try:
+    from data_prep import autoload_connection, load_trip_csv_to_duckdb
+    from nlq import parse_intent, execute_intent
+    DATA_AVAILABLE = True
+except ImportError as e:
+    st.error(f"Failed to import required modules: {e}")
+    DATA_AVAILABLE = False
+    # Create dummy functions to prevent further errors
+    def autoload_connection(*args, **kwargs):
+        raise ImportError("Data modules not available")
+    def load_trip_csv_to_duckdb(*args, **kwargs):
+        raise ImportError("Data modules not available")
+    def parse_intent(*args, **kwargs):
+        return {"action": "error", "message": "Data modules not available"}
+    def execute_intent(*args, **kwargs):
+        return "Data modules not available", None, None
 
 # ------------------ Page ------------------
 st.set_page_config(page_title="Fetii Trips — Austin Chat", layout="wide")
@@ -307,11 +321,15 @@ def get_connection(upload_path: str | None):
         return load_trip_csv_to_duckdb(upload_path)
     return autoload_connection()   # loads data/trips.csv (or other supported names)
 
-try:
-    con = get_connection(st.session_state.get("upload_path"))
-except Exception as e:
+if not DATA_AVAILABLE:
     con = None
-    st.sidebar.error(f"Dataset error:\n{e}")
+    st.sidebar.error("Required data modules are not available. Please check your deployment configuration.")
+else:
+    try:
+        con = get_connection(st.session_state.get("upload_path"))
+    except Exception as e:
+        con = None
+        st.sidebar.error(f"Dataset error:\n{e}")
 
 # ------------------ Header / KPIs ------------------
 st.markdown("## Fetii Trips")

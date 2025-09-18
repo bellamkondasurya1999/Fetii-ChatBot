@@ -142,9 +142,16 @@
 from __future__ import annotations
 import os
 from pathlib import Path
-import duckdb
 import pandas as pd
 from typing import Optional
+
+# Try to import duckdb with fallback
+try:
+    import duckdb
+except ImportError as e:
+    print(f"Warning: DuckDB not available: {e}")
+    print("Please install duckdb: pip install duckdb")
+    duckdb = None
 
 TRIP_COL_MAP = {
     "Trip ID": "trip_id",
@@ -193,7 +200,10 @@ def _create_views(con: duckdb.DuckDBPyConnection) -> None:
     """)
     con.execute("CREATE OR REPLACE VIEW trip_age_flags AS SELECT 1 WHERE 1=0;")
 
-def load_trip_csv_to_duckdb(csv_path: str, database_path: Optional[str] = ":memory:") -> duckdb.DuckDBPyConnection:
+def load_trip_csv_to_duckdb(csv_path: str, database_path: Optional[str] = ":memory:"):
+    if duckdb is None:
+        raise ImportError("DuckDB is not available. Please install it with: pip install duckdb")
+    
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"CSV not found: {csv_path}")
     try:
@@ -208,10 +218,13 @@ def load_trip_csv_to_duckdb(csv_path: str, database_path: Optional[str] = ":memo
     _create_views(con)
     return con
 
-def autoload_connection(database_path: Optional[str] = ":memory:") -> duckdb.DuckDBPyConnection:
+def autoload_connection(database_path: Optional[str] = ":memory:"):
     """
     Try common repo locations; prefer clean `data/trips.csv` for cloud deploys.
     """
+    if duckdb is None:
+        raise ImportError("DuckDB is not available. Please install it with: pip install duckdb")
+    
     root = Path(__file__).parent
     candidates = [
         root / "data" / "trips.csv",
